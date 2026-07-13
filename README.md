@@ -40,7 +40,7 @@ Tutor_LLM/
 ├── .env                      # API key — never commit this
 ├── .env.example              # Safe template to share
 ├── .gitignore
-├── requirements.txt          # To be added later
+├── requirements.txt          # To be added
 │
 ├── core/                     # Shared engine — imported by every step file
 │   ├── __init__.py
