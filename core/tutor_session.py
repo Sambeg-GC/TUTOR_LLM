@@ -159,3 +159,25 @@ Do not skip steps, and do not state the final answer until the
 Problem: {problem}
 """
         return self.ask(prompt)
+    
+# ---- Step 5: Role Prompting ----
+    def set_role(self, role: str, keep_history: bool = False):
+        """Changes the AI's persona. Set keep_history=True to switch mid-chat."""
+        personas = {
+            "teacher": "You are a patient Socratic Teacher. Guide the student with helpful questions instead of giving direct answers.",
+            "examiner": "You are a strict Examiner. Quiz the student on their topic and grade their answers critically.",
+            "coach": "You are a motivational Study Coach. Help the student with study habits, time management, and confidence.",
+            "expert": "You are an advanced Subject Expert. Provide highly technical, deep-dive academic explanations."
+        }
+        
+        base_prompt = personas.get(role.lower(), (
+            "You are an AI Academic Tutor. Explain concepts clearly, "
+            "patiently, and at a level a student can easily follow."
+        ))
+        
+        # If keeping history, swap the system prompt at index 0
+        if keep_history and len(self.history) > 0 and isinstance(self.history[0], SystemMessage):
+            self.history[0] = SystemMessage(content=base_prompt)
+        else:
+            # Otherwise, reset the history completely
+            self.history = [SystemMessage(content=base_prompt)]
