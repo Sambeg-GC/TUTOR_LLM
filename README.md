@@ -27,7 +27,7 @@ A console-based AI tutor built with Python and the Google Gemini API, demonstrat
 
 ```
 Tutor_LLM/
-├── .env                    # API keys (not committed)
+├── .env                    
 ├── .gitignore
 ├── requirements.txt        # (to be added)
 ├── core/
