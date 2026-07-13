@@ -20,7 +20,7 @@ MENU = """
 ============================================================
 AI Academic Tutor — Step 2: Zero-Shot Prompting
 ============================================================
-1. Explain a topic
+1. Explain a Topic
 2. Summarize study material
 3. Simplify a complex concept
 4. View conversation history
