@@ -199,3 +199,35 @@ Problem: {problem}
         
         # Send the formatted string through the existing chat history chain
         return self.ask(prompt_string)
+
+    
+# ---- Step 7: LangChain Chains ----
+    def run_study_pipeline(self, topic: str) -> dict:
+        """Runs a sequential pipeline: Topic -> Explanation -> Summary Notes."""
+        from langchain_core.prompts import PromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        # Chain 1: Generate the explanation
+        explain_chain = (
+            PromptTemplate.from_template("Explain '{topic}' clearly for a beginner student.") 
+            | self.llm 
+            | StrOutputParser()
+        )
+
+        # Chain 2: Take the explanation and extract bullet points
+        notes_chain = (
+            PromptTemplate.from_template("Based on this explanation, extract 3 key study points:\n\n{explanation}") 
+            | self.llm 
+            | StrOutputParser()
+        )
+
+        # Execute the sequence
+        explanation = explain_chain.invoke({"topic": topic})
+        notes = notes_chain.invoke({"explanation": explanation})
+
+        # Save the full result to the main session history
+        from langchain_core.messages import HumanMessage, AIMessage
+        self.history.append(HumanMessage(content=f"Generate pipeline for: {topic}"))
+        self.history.append(AIMessage(content=f"Explanation:\n{explanation}\n\nNotes:\n{notes}"))
+
+        return {"explanation": explanation, "notes": notes}
