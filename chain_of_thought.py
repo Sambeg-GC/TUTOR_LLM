@@ -42,7 +42,7 @@ def main():
             session.show_history()
 
         elif choice == "3":
-            print("Goodbye! Keep studying.")
+            print("Goodbye! Keep Studying.")
             break
 
         else:
