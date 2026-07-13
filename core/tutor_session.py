@@ -299,3 +299,88 @@ Problem: {problem}
         for msg in self.history:
             role = msg.__class__.__name__.replace("Message", "")
             print(f"[{role}] {msg.content}\n")
+
+
+# ---- Step 9: Agents & Tools ----
+    def ask_with_tools(self, user_input: str) -> str:
+        """Runs an autonomous agent using the ReAct framework, compatible with all LLM classes."""
+        try:
+            from langchain.agents import AgentExecutor, create_react_agent
+        except ImportError:
+            from langchain_classic.agents import AgentExecutor, create_react_agent
+            
+        from langchain_core.prompts import PromptTemplate
+        from langchain_core.tools import tool
+
+        # 1. Define the native Python calculation tool
+        @tool
+        def calculate(expression: str) -> str:
+            """Useful for executing precise math calculations and formulas. 
+            Input must be a raw string mathematical expression like '2 + 2' or '54 * (12 / 3)'."""
+            try:
+                import math
+                allowed_names = {k: v for k, v in vars(math).items() if not k.startswith("__")}
+                return str(eval(expression, {"__builtins__": None}, allowed_names))
+            except Exception as e:
+                return f"Error evaluating expression: {str(e)}"
+
+        tools = [calculate]
+
+        # 2. Design the universal ReAct prompt structure (No native bind_tools required)
+        template = """You are an AI Academic Tutor. Explain concepts clearly and patiently.
+Always use the calculate tool for precise math operations rather than solving them mentally.
+
+You have access to the following tools:
+
+{tools}
+
+To use a tool, you MUST use the exact format below:
+
+Thought: Do I need to use a tool? Yes.
+Action: the action to take, must be exactly one of [{tool_names}]
+Action Input: the mathematical expression to calculate (e.g., "66 + (66 / 77)")
+Observation: the result of the tool execution
+... (this Thought/Action/Action Input/Observation can repeat if needed)
+Thought: Do I need to use a tool? No.
+Final Answer: The final clean response to the student, summarizing the steps.
+
+If you don't need a tool to answer the question, skip the tool format and just provide the Final Answer.
+
+Current Conversation History:
+{chat_history}
+
+Student Question: {input}
+Thought: {agent_scratchpad}"""
+
+        prompt = PromptTemplate.from_template(template)
+
+        # 3. Format history list into a clean text block for the text prompt
+        history_text = ""
+        for msg in self.history:
+            role = msg.__class__.__name__.replace("Message", "")
+            history_text += f"[{role}]: {msg.content}\n"
+
+        # 4. Initialize the ReAct runtime agent sequence
+        agent = create_react_agent(self.llm, tools, prompt)
+        agent_executor = AgentExecutor(
+            agent=agent, 
+            tools=tools, 
+            verbose=True,
+            handle_parsing_errors=True  # Gracefully catches and fixes any formatting slips
+        )
+
+        # 5. Invoke the execution loop
+        response = agent_executor.invoke({
+            "input": user_input,
+            "chat_history": history_text,
+        })
+        
+        output = response["output"]
+
+        # 6. Append turns and save state
+        from langchain_core.messages import HumanMessage, AIMessage
+        self.history.append(HumanMessage(content=user_input))
+        self.history.append(AIMessage(content=output))
+        self.save_history()
+
+        return output
