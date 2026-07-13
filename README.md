@@ -1,95 +1,165 @@
-# Tutor_LLM
+# 🎓 Tutor_LLM | AI-Powered Academic Tutor
 
-A console-based AI tutor built with Python and the Google Gemini API, demonstrating core prompt engineering techniques and LangChain concepts (chains, memory, agents). Built as a lab project covering prompting fundamentals and LLM integration.
+A console-based AI tutoring system built with Python and the Google Gemini API, exploring core prompt engineering techniques and LangChain-based application patterns — from a simple LLM call all the way up to agents that pick and use tools autonomously.
 
-## Features
+Built as a structured lab project where each step introduces one new concept, keeping all earlier code intact and growing a single shared `TutorSession` class throughout.
 
-- Conversational tutoring with persistent context across a session (`core/tutor_session.py`)
-- Zero-shot prompting for free-form topic explanations (`zeroshot.py`)
-- Few-shot prompting for structured responses (`fewshot.py`)
-- Chain-of-Thought (CoT) prompting for step-by-step reasoning problems (`chain_of_thought.py`)
-- Centralized LLM client setup with auto-retry on transient errors (`core/llm_setup.py`)
-- *(Planned)* Role-based prompting for persona-driven responses
-- *(Planned)* Reusable prompt templates
-- *(Planned)* LangChain chains for multi-step pipelines
-- *(Planned)* Memory system to recall user info and past topics
-- *(Planned)* Agents & tools that decide which tool to use
+---
 
-## Tech Stack
+## ✨ Features
 
-- Python
-- Google Gemini API — `gemini-2.5-flash` (via `langchain-google-genai`)
-- LangChain (`langchain`, `langchain-google-genai`)
-- `python-dotenv` for environment variable management
-- Built-in retry handling (`.with_retry()`) for transient API errors
+| Done? | Feature | File |
+|-------|---------|------|
+| ✅ | Session-based conversation with full context history | `llm_integration.py` |
+| ✅ | Zero-shot prompting — explain, summarize, simplify | `zeroshot.py` |
+| ✅ | Few-shot prompting — quiz generation, structured notes | `fewshot.py` |
+| ✅ | Chain-of-Thought prompting — step-by-step problem solving | `chain_of_thought.py` |
+| 🔲 | Role prompting — Teacher, Examiner, Coach, Subject Expert | `role_prompting.py` |
+| 🔲 | Reusable prompt templates with dynamic input substitution | `prompt_templates.py` |
+| 🔲 | LangChain chains — Topic → Explanation → Notes → Quiz pipeline | `lc_chains.py` |
+| 🔲 | Memory system — persist user identity and learning history | `memory_system.py` |
+| 🔲 | Agents & tools — calculator, study planner, summarizer | `agents_tools.py` |
+| 🔲 | Final integration — single unified console app | `main_app.py` |
 
-## Project Structure
+---
+
+## 🛠️ Tech Stack
+
+- **Python 3.10+**
+- **Google Gemini API** — `gemini-2.5-flash` (1,500 free requests/day)
+- **LangChain** — `langchain`, `langchain-core`, `langchain-google-genai`
+- **python-dotenv** — `.env`-based API key management
+- **Built-in retry** — `.with_retry()` with exponential backoff for transient 503/429 errors
+
+---
+
+## 📁 Project Structure
 
 ```
 Tutor_LLM/
-├── .env                    
+├── .env                      # API key — never commit this
+├── .env.example              # Safe template to share
 ├── .gitignore
-├── requirements.txt        # (to be added)
-├── core/
+├── requirements.txt          # To be added later
+│
+├── core/                     # Shared engine — imported by every step file
 │   ├── __init__.py
-│   ├── llm_setup.py         # LLM client setup, retry logic
-│   └── tutor_session.py     # Conversational session/context handling
-├── llm_integration.py       # Shared LLM call wrapper
-├── zeroshot.py               # Zero-shot prompting
-├── fewshot.py                 # Few-shot prompting
-└── chain_of_thought.py        # Chain-of-Thought prompting
+│   ├── llm_setup.py          # Gemini client, retry logic, model config
+│   └── tutor_session.py      # TutorSession class — grows with each step
+│
+├── llm_integration.py        # Step 1 — basic ask/response + session history
+├── zeroshot.py               # Step 2 — zero-shot prompting
+├── fewshot.py                # Step 3 — few-shot prompting
+├── chain_of_thought.py       # Step 4 — chain-of-thought prompting
+├── role_prompting.py         # Step 5 — role-based personas
+├── prompt_templates.py       # Step 6 — reusable LangChain prompt templates
+├── lc_chains.py              # Step 7 — LangChain sequential chains
+├── memory_system.py          # Step 8 — conversation memory
+├── agents_tools.py           # Step 9 — LangChain agent with tools
+└── main_app.py               # Step 10 — final integrated console app
 ```
 
-## Setup
+> **Architecture principle:** `core/` holds the shared engine. Each `stepN_*.py` file at the root is a standalone runnable that imports from `core/` — adding a new step never breaks earlier ones.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/<your-username>/Tutor_LLM.git
-   cd Tutor_LLM
-   ```
+---
 
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   venv\Scripts\activate   # Windows
-   ```
+## ⚙️ Setup
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 1. Clone the repository
+```bash
+git clone https://github.com/<your-username>/Tutor_LLM.git
+cd Tutor_LLM
+```
 
-4. Create a `.env` file in the project root:
-   ```
-   GOOGLE_API_KEY=your_api_key_here
-   ```
-   Get a free key from [aistudio.google.com](https://aistudio.google.com).
+### 2. Create and activate a virtual environment
+```bash
+python -m venv .venv
 
-5. Run a script:
-   ```bash
-   python zeroshot.py
-   ```
+# Windows
+.venv\Scripts\activate
 
-## Progress
+# Mac/Linux
+source .venv/bin/activate
+```
 
-| Step | Topic                      | Status         |
-|------|-----------------------------|----------------|
-| 1    | LLM API Integration          | ✅ Done         |
-| 2    | Zero-Shot Prompting           | ✅ Done         |
-| 3    | Few-Shot Prompting             | ✅ Done         |
-| 4    | Chain-of-Thought Prompting      | ✅ Done         |
-| 5    | Role Prompting                   | 🔲 Not started  |
-| 6    | Prompt Templates                  | 🔲 Not started  |
-| 7    | LangChain Chains                   | 🔲 Not started  |
-| 8    | Memory System                       | 🔲 Not started  |
-| 9    | Agents & Tools                       | 🔲 Not started  |
-| 10   | Final Integration                     | 🔲 Not started  |
+### 3. Install dependencies
+```bash
+pip install -r requirements.txt
+```
 
-## Notes
+### 4. Configure your API key
+```bash
+cp .env.example .env
+# Open .env and set:
+# GOOGLE_API_KEY=your_api_key_here
+```
+Get a free key from [aistudio.google.com](https://aistudio.google.com). The free tier of `gemini-2.5-flash` gives **1,500 requests/day** — plenty for development.
 
-- Built with the Google Gemini API (`gemini-2.5-flash`) via LangChain's `langchain-google-genai` integration.
-- Includes auto-retry with exponential backoff for transient API errors (e.g. `503 UNAVAILABLE`).
+### 5. Run any step
+```bash
+python zeroshot.py
+python fewshot.py
+python chain_of_thought.py
+# etc.
+```
 
-## Author
+---
 
-Sambeg G.C.
+## 📦 Requirements
+
+```
+langchain
+langchain-core
+langchain-google-genai
+python-dotenv
+```
+
+---
+
+## 🗺️ Step-by-Step Progress
+
+| Step | Topic | Concept Introduced | Status |
+|------|-------|--------------------|--------|
+| 1 | LLM API Integration | Connect to Gemini, session history | ✅ Done |
+| 2 | Zero-Shot Prompting | Instruction-only prompts | ✅ Done |
+| 3 | Few-Shot Prompting | Example-guided output formatting | ✅ Done |
+| 4 | Chain-of-Thought | Explicit step-by-step reasoning | ✅ Done |
+| 5 | Role Prompting | Persona switching via system prompt | 🔲 Next |
+| 6 | Prompt Templates | Reusable LangChain `PromptTemplate` | 🔲 Planned |
+| 7 | LangChain Chains | Sequential multi-step pipelines | 🔲 Planned |
+| 8 | Memory System | Cross-turn context & user identity | 🔲 Planned |
+| 9 | Agents & Tools | LLM-driven tool selection | 🔲 Planned |
+| 10 | Final Integration | Unified console app, all modules | 🔲 Planned |
+
+---
+
+## 🔮 Planned Extension — RAG Pipeline
+
+The 10-step roadmap covers prompt engineering and LangChain fundamentals. A natural next layer beyond Step 10 is a **Retrieval-Augmented Generation (RAG)** system, which would add:
+
+- **Vector database** (ChromaDB or FAISS) to store and index study materials
+- **Embedding model** to convert text into semantic vectors
+- **Similarity search** to retrieve relevant chunks before each LLM call, grounding answers in uploaded documents rather than model memory alone
+- **Evaluation metrics** (faithfulness, answer relevancy, context precision) via frameworks like RAGAS
+
+This keeps RAG as a well-founded extension rather than a separate project — Steps 7–9 (chains, memory, agents) build the LangChain foundation it needs.
+
+---
+
+## 🐛 Known Issues & Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `503 UNAVAILABLE` | Transient Gemini server overload | Auto-retried with exponential backoff |
+| `429 RESOURCE_EXHAUSTED` | Daily free-tier quota exceeded (20 req/day on newer models) | Use `gemini-2.5-flash` (1,500 req/day) |
+| Response prints as `[{'type': 'text', ...}]` | Gemini 3.x returns content blocks, not plain strings | `_extract_text()` in `TutorSession` normalizes both formats |
+| `ModuleNotFoundError: core` | Step file run from wrong directory | `cd` into `Tutor_LLM/` before running |
+
+---
+
+## 👤 Author
+
+**Sambeg G.C.**
+
+---
+
