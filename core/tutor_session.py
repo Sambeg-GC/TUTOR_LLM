@@ -51,10 +51,23 @@ class TutorSession:
         return str(content)
 
     def show_history(self):
+        """Displays full conversation history with safety checks for empty lists."""
         print("\n--- Conversation History ---")
-        for msg in self.history:
+        
+        # Check if history list has anything inside it
+        if not self.history:
+            print("[System Notice] The conversation history list is completely empty.")
+            return
+            
+        print(f"[Debug] Printing {len(self.history)} messages from active memory:")
+        
+        for idx, msg in enumerate(self.history):
             role = msg.__class__.__name__.replace("Message", "")
-            print(f"[{role}] {msg.content}\n")
+            # Using repr() as a fallback ensures text prints even if encoding strains the console
+            content = msg.content
+            print(f"{idx + 1}. [{role}]: {content}\n")
+            
+        print("-----------------------------\n")
 
     # ---- Step 2: Zero-shot prompting ----
     # No examples are given to the model in any of these — just a direct
@@ -200,7 +213,7 @@ Problem: {problem}
         # Send the formatted string through the existing chat history chain
         return self.ask(prompt_string)
 
-    
+
 # ---- Step 7: LangChain Chains ----
     def run_study_pipeline(self, topic: str) -> dict:
         """Runs a sequential pipeline: Topic -> Explanation -> Summary Notes."""
@@ -231,3 +244,58 @@ Problem: {problem}
         self.history.append(AIMessage(content=f"Explanation:\n{explanation}\n\nNotes:\n{notes}"))
 
         return {"explanation": explanation, "notes": notes}
+    
+
+# ---- Step 8: Memory System ----
+    def save_history(self, filename="tutor_history.json"):
+        """Saves current conversation history to a local JSON file."""
+        import json
+        import os
+        
+        serialized = []
+        for msg in self.history:
+            serialized.append({
+                "role": msg.__class__.__name__,
+                "content": msg.content
+            })
+            
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(serialized, f, ensure_ascii=False, indent=4)
+        
+        print(f"\n[Debug] History saved successfully to: {os.path.abspath(filename)}")
+
+    def load_history(self, filename="tutor_history.json"):
+        """Loads conversation history from a local JSON file if it exists."""
+        import os
+        import json
+        
+        if not os.path.exists(filename):
+            print(f"\n[Debug] No saved history file found at: {os.path.abspath(filename)}")
+            return
+            
+        with open(filename, "r", encoding="utf-8") as f:
+            serialized = json.load(f)
+            
+        self.history = []
+        for item in serialized:
+            role = item.get("role")
+            content = item.get("content", "")
+            
+            if role == "SystemMessage":
+                self.history.append(SystemMessage(content=content))
+            elif role == "HumanMessage":
+                self.history.append(HumanMessage(content=content))
+            elif role == "AIMessage":
+                self.history.append(AIMessage(content=content))
+                
+        print(f"\n[Debug] Loaded {len(self.history)} messages from history file.")
+
+    def show_history(self):
+        """Displays full conversation history clearly."""
+        print("\n--- Conversation History ---")
+        if not self.history:
+            print("No history found.")
+            return
+        for msg in self.history:
+            role = msg.__class__.__name__.replace("Message", "")
+            print(f"[{role}] {msg.content}\n")
