@@ -15,7 +15,7 @@ from core.tutor_session import TutorSession
 
 
 def main():
-    print("=" * 60)
+    print("=" * 61)
     print("AI Academic Tutor — Step 1: LLM API Integration")
     print("Type 'history' to view the conversation log, 'exit' to quit.")
     print("=" * 60)
