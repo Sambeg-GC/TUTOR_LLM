@@ -301,9 +301,10 @@ Problem: {problem}
             print(f"[{role}] {msg.content}\n")
 
 
-# ---- Step 9: Agents & Tools ----
+# ---- Step 9: Advanced Academic Agent (Math + Summarizer + Planner) ----
     def ask_with_tools(self, user_input: str) -> str:
-        """Runs an autonomous agent using the ReAct framework, compatible with all LLM classes."""
+        """Runs an autonomous academic agent equipped with a calculator tool, 
+        plus built-in specialized engines for text summarization and study planning."""
         try:
             from langchain.agents import AgentExecutor, create_react_agent
         except ImportError:
@@ -326,9 +327,11 @@ Problem: {problem}
 
         tools = [calculate]
 
-        # 2. Design the universal ReAct prompt structure (No native bind_tools required)
-        template = """You are an AI Academic Tutor. Explain concepts clearly and patiently.
-Always use the calculate tool for precise math operations rather than solving them mentally.
+        # 2. Design the master academic prompt template with Summarizer and Planner logic
+        template = """You are an AI Academic Tutor. You specialize in three main pillars:
+1. Precise Mathematics: ALWAYS use the 'calculate' tool for math operations rather than solving them mentally.
+2. Text Summarization: When asked to summarize text, format your output with a bold 'TL;DR' paragraph, followed by a bulleted list of 'Key Takeaways', and finish with 3 quick 'Concept Flashcard Questions'.
+3. Study Planning: When asked to create a study plan or schedule, always generate a structured Markdown table detailing [Day/Week | Topic to Cover | Estimated Time | Study Strategy].
 
 You have access to the following tools:
 
@@ -342,9 +345,9 @@ Action Input: the mathematical expression to calculate (e.g., "66 + (66 / 77)")
 Observation: the result of the tool execution
 ... (this Thought/Action/Action Input/Observation can repeat if needed)
 Thought: Do I need to use a tool? No.
-Final Answer: The final clean response to the student, summarizing the steps.
+Final Answer: The final response to the student. If you are summarizing or planning, apply the mandatory markdown formatting rules listed above.
 
-If you don't need a tool to answer the question, skip the tool format and just provide the Final Answer.
+If you don't need a tool to answer the question, skip the tool format and just provide the Final Answer directly.
 
 Current Conversation History:
 {chat_history}
@@ -354,7 +357,7 @@ Thought: {agent_scratchpad}"""
 
         prompt = PromptTemplate.from_template(template)
 
-        # 3. Format history list into a clean text block for the text prompt
+        # 3. Format history list into a clean text block
         history_text = ""
         for msg in self.history:
             role = msg.__class__.__name__.replace("Message", "")
@@ -366,7 +369,7 @@ Thought: {agent_scratchpad}"""
             agent=agent, 
             tools=tools, 
             verbose=True,
-            handle_parsing_errors=True  # Gracefully catches and fixes any formatting slips
+            handle_parsing_errors=True
         )
 
         # 5. Invoke the execution loop
