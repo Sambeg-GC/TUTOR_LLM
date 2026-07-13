@@ -181,3 +181,21 @@ Problem: {problem}
         else:
             # Otherwise, reset the history completely
             self.history = [SystemMessage(content=base_prompt)]
+
+# ---- Step 6: Prompt Templates ----
+    def generate_study_guide(self, topic: str, focus_area: str) -> str:
+        """Generates a structured study guide using a LangChain PromptTemplate."""
+        from langchain_core.prompts import PromptTemplate
+        
+        # Define a reusable template structure with placeholders
+        template = PromptTemplate.from_template(
+            "Create a comprehensive study guide for the topic: {topic}.\n"
+            "Focus heavily on this specific sub-area: {focus_area}.\n"
+            "Provide a short summary, 3 core concepts, and 2 review questions."
+        )
+        
+        # Dynamically inject the user variables into the template
+        prompt_string = template.format(topic=topic, focus_area=focus_area)
+        
+        # Send the formatted string through the existing chat history chain
+        return self.ask(prompt_string)
