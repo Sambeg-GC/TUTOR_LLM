@@ -20,7 +20,7 @@ MENU = """
 AI Academic Tutor — Step 3: Few-Shot Prompting
 ============================================================
 1. Generate a quiz (consistent MCQ format)
-2. Categorize study notes (tagged format)
+2. Categorize study notes (Tagged format)
 3. View conversation history
 4. Exit
 """
