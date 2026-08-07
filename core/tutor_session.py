@@ -13,13 +13,17 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 
 class TutorSession:
-    def __init__(self, llm):
+    def __init__(self, llm, user_id: str = "default", user_name: str = None):
         self.llm = llm
+        self.user_id = user_id
+        self.user_name = user_name or user_id
+
+        identity_line = f" You are currently tutoring {self.user_name}." if user_name else ""
         self.history = [
             SystemMessage(content=(
                 "You are an AI Academic Tutor. Explain concepts clearly, "
                 "patiently, and at a level a student can easily follow. "
-                "Keep answers focused and well organized."
+                "Keep answers focused and well organized." + identity_line
             ))
         ]
 
@@ -214,81 +218,128 @@ Problem: {problem}
         return self.ask(prompt_string)
 
 
-# ---- Step 7: LangChain Chains ----
+  # ---- Step 7: LangChain Chains ----
     def run_study_pipeline(self, topic: str) -> dict:
-        """Runs a sequential pipeline: Topic -> Explanation -> Summary Notes."""
+        """Runs a sequential pipeline: Topic -> Explanation -> Notes -> Quiz."""
         from langchain_core.prompts import PromptTemplate
         from langchain_core.output_parsers import StrOutputParser
 
         # Chain 1: Generate the explanation
         explain_chain = (
-            PromptTemplate.from_template("Explain '{topic}' clearly for a beginner student.") 
-            | self.llm 
+            PromptTemplate.from_template("Explain '{topic}' clearly for a beginner student.")
+            | self.llm
             | StrOutputParser()
         )
 
         # Chain 2: Take the explanation and extract bullet points
         notes_chain = (
-            PromptTemplate.from_template("Based on this explanation, extract 3 key study points:\n\n{explanation}") 
-            | self.llm 
+            PromptTemplate.from_template("Based on this explanation, extract 3 key study points:\n\n{explanation}")
+            | self.llm
             | StrOutputParser()
         )
 
-        # Execute the sequence
+        # Chain 3: Take the notes and turn them into a short quiz, in the same
+        # few-shot MCQ format used by generate_quiz()
+        quiz_chain = (
+            PromptTemplate.from_template(
+                "Using these study notes, write 3 multiple-choice quiz questions "
+                "in EXACTLY this format:\n\n"
+                "Q1: <question>\nA) <option>\nB) <option>\nC) <option>\nD) <option>\n"
+                "Answer: <letter>\nDifficulty: <Easy/Medium/Hard>\n\n---\n\n"
+                "Study Notes:\n{notes}"
+            )
+            | self.llm
+            | StrOutputParser()
+        )
+
+        # Execute the sequence: Topic -> Explanation -> Notes -> Quiz
         explanation = explain_chain.invoke({"topic": topic})
         notes = notes_chain.invoke({"explanation": explanation})
+        quiz = quiz_chain.invoke({"notes": notes})
 
         # Save the full result to the main session history
         from langchain_core.messages import HumanMessage, AIMessage
         self.history.append(HumanMessage(content=f"Generate pipeline for: {topic}"))
-        self.history.append(AIMessage(content=f"Explanation:\n{explanation}\n\nNotes:\n{notes}"))
+        self.history.append(AIMessage(
+            content=f"Explanation:\n{explanation}\n\nNotes:\n{notes}\n\nQuiz:\n{quiz}"
+        ))
 
-        return {"explanation": explanation, "notes": notes}
-    
+        return {"explanation": explanation, "notes": notes, "quiz": quiz}
 
 # ---- Step 8: Memory System ----
-    def save_history(self, filename="tutor_history.json"):
-        """Saves current conversation history to a local JSON file."""
+    # ---- Step 8: Memory System ----
+    def _history_filename(self, filename=None):
+        """Builds a per-user filename so different students don't share one
+        history file. Falls back to the original 'tutor_history.json' when
+        no identity was set, so older callers (main_app.py etc.) still work."""
+        if filename:
+            return filename
+        if not self.user_id or self.user_id == "default":
+            return "tutor_history.json"
+        safe_id = "".join(c for c in self.user_id if c.isalnum() or c in ("-", "_")) or "default"
+        return f"tutor_history_{safe_id}.json"
+
+    def save_history(self, filename=None):
+        """Saves current conversation history, plus user identity, to a local JSON file."""
         import json
         import os
-        
+
+        filename = self._history_filename(filename)
+
         serialized = []
         for msg in self.history:
             serialized.append({
                 "role": msg.__class__.__name__,
                 "content": msg.content
             })
-            
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(serialized, f, ensure_ascii=False, indent=4)
-        
-        print(f"\n[Debug] History saved successfully to: {os.path.abspath(filename)}")
 
-    def load_history(self, filename="tutor_history.json"):
-        """Loads conversation history from a local JSON file if it exists."""
+        payload = {
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "messages": serialized
+        }
+
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=4)
+
+        print(f"\n[Debug] History for '{self.user_name}' saved to: {os.path.abspath(filename)}")
+
+    def load_history(self, filename=None):
+        """Loads conversation history and identity from a local JSON file if it exists."""
         import os
         import json
-        
+
+        filename = self._history_filename(filename)
+
         if not os.path.exists(filename):
             print(f"\n[Debug] No saved history file found at: {os.path.abspath(filename)}")
             return
-            
+
         with open(filename, "r", encoding="utf-8") as f:
-            serialized = json.load(f)
-            
+            payload = json.load(f)
+
+        # Support both the new {user_id, user_name, messages} format and the
+        # old flat-list format, so pre-existing tutor_history.json files still load.
+        if isinstance(payload, list):
+            serialized = payload
+        else:
+            self.user_id = payload.get("user_id", self.user_id)
+            self.user_name = payload.get("user_name", self.user_name)
+            serialized = payload.get("messages", [])
+
         self.history = []
         for item in serialized:
             role = item.get("role")
             content = item.get("content", "")
-            
+
             if role == "SystemMessage":
                 self.history.append(SystemMessage(content=content))
             elif role == "HumanMessage":
                 self.history.append(HumanMessage(content=content))
             elif role == "AIMessage":
                 self.history.append(AIMessage(content=content))
-                
-        print(f"\n[Debug] Loaded {len(self.history)} messages from history file.")
+
+        print(f"\n[Debug] Loaded {len(self.history)} messages for '{self.user_name}'.")
 
     def show_history(self):
         """Displays full conversation history clearly."""
@@ -302,21 +353,24 @@ Problem: {problem}
 
 
 # ---- Step 9: Advanced Academic Agent (Math + Summarizer + Planner) ----
+   # ---- Step 9: Advanced Academic Agent (Math + Summarizer + Planner as real tools) ----
     def ask_with_tools(self, user_input: str) -> str:
-        """Runs an autonomous academic agent equipped with a calculator tool, 
-        plus built-in specialized engines for text summarization and study planning."""
+        """Runs an autonomous academic agent with THREE real tools it chooses
+        between: a calculator, a text summarizer, and a study planner."""
         try:
             from langchain.agents import AgentExecutor, create_react_agent
         except ImportError:
             from langchain_classic.agents import AgentExecutor, create_react_agent
-            
+
         from langchain_core.prompts import PromptTemplate
         from langchain_core.tools import tool
 
-        # 1. Define the native Python calculation tool
+        llm = self.llm  # the summarizer/planner tools make their own LLM calls
+
+        # 1. Precise math tool
         @tool
         def calculate(expression: str) -> str:
-            """Useful for executing precise math calculations and formulas. 
+            """Useful for executing precise math calculations and formulas.
             Input must be a raw string mathematical expression like '2 + 2' or '54 * (12 / 3)'."""
             try:
                 import math
@@ -325,13 +379,40 @@ Problem: {problem}
             except Exception as e:
                 return f"Error evaluating expression: {str(e)}"
 
-        tools = [calculate]
+        # 2. Summarizer tool
+        @tool
+        def summarize_text(text: str) -> str:
+            """Useful for condensing a block of study text into a TL;DR, key
+            takeaways, and flashcard questions. Input must be the raw text to summarize."""
+            prompt = (
+                "Summarize the following study material. Format your reply with a "
+                "bold 'TL;DR' paragraph, then a bulleted list of 'Key Takeaways', "
+                "then 3 short 'Concept Flashcard Questions'.\n\n"
+                f"Text:\n{text}"
+            )
+            response = llm.invoke(prompt)
+            return self._extract_text(response.content)
 
-        # 2. Design the master academic prompt template with Summarizer and Planner logic
-        template = """You are an AI Academic Tutor. You specialize in three main pillars:
-1. Precise Mathematics: ALWAYS use the 'calculate' tool for math operations rather than solving them mentally.
-2. Text Summarization: When asked to summarize text, format your output with a bold 'TL;DR' paragraph, followed by a bulleted list of 'Key Takeaways', and finish with 3 quick 'Concept Flashcard Questions'.
-3. Study Planning: When asked to create a study plan or schedule, always generate a structured Markdown table detailing [Day/Week | Topic to Cover | Estimated Time | Study Strategy].
+        # 3. Study planner tool
+        @tool
+        def create_study_plan(request: str) -> str:
+            """Useful for building a structured study schedule. Input must describe
+            the topic(s), the deadline or timeframe, and any known constraints."""
+            prompt = (
+                "Build a structured study plan for this request. Respond ONLY with "
+                "a Markdown table with these columns: Day/Week | Topic to Cover | "
+                "Estimated Time | Study Strategy.\n\n"
+                f"Request:\n{request}"
+            )
+            response = llm.invoke(prompt)
+            return self._extract_text(response.content)
+
+        tools = [calculate, summarize_text, create_study_plan]
+
+        # 4. Master prompt — the agent now SELECTS a tool, no baked-in formatting rules
+        template = """You are an AI Academic Tutor. You have access to specialized tools
+for math, summarization, and study planning — always prefer a tool over doing
+that work yourself when one applies.
 
 You have access to the following tools:
 
@@ -341,11 +422,11 @@ To use a tool, you MUST use the exact format below:
 
 Thought: Do I need to use a tool? Yes.
 Action: the action to take, must be exactly one of [{tool_names}]
-Action Input: the mathematical expression to calculate (e.g., "66 + (66 / 77)")
+Action Input: the input to the tool
 Observation: the result of the tool execution
 ... (this Thought/Action/Action Input/Observation can repeat if needed)
 Thought: Do I need to use a tool? No.
-Final Answer: The final response to the student. If you are summarizing or planning, apply the mandatory markdown formatting rules listed above.
+Final Answer: the final response to the student, based on any tool output above.
 
 If you don't need a tool to answer the question, skip the tool format and just provide the Final Answer directly.
 
@@ -357,30 +438,26 @@ Thought: {agent_scratchpad}"""
 
         prompt = PromptTemplate.from_template(template)
 
-        # 3. Format history list into a clean text block
         history_text = ""
         for msg in self.history:
             role = msg.__class__.__name__.replace("Message", "")
             history_text += f"[{role}]: {msg.content}\n"
 
-        # 4. Initialize the ReAct runtime agent sequence
         agent = create_react_agent(self.llm, tools, prompt)
         agent_executor = AgentExecutor(
-            agent=agent, 
-            tools=tools, 
+            agent=agent,
+            tools=tools,
             verbose=True,
             handle_parsing_errors=True
         )
 
-        # 5. Invoke the execution loop
         response = agent_executor.invoke({
             "input": user_input,
             "chat_history": history_text,
         })
-        
+
         output = response["output"]
 
-        # 6. Append turns and save state
         from langchain_core.messages import HumanMessage, AIMessage
         self.history.append(HumanMessage(content=user_input))
         self.history.append(AIMessage(content=output))

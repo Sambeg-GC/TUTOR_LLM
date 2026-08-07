@@ -1,6 +1,6 @@
 """
 AI-Powered Academic Tutor
-Step 7: LangChain Chains
+Step 7: LangChain Chains (Explanation -> Notes -> Quiz)
 
 Run:
   python lc_chains.py
@@ -17,7 +17,7 @@ def main():
         print("\n" + "=" * 60)
         print("AI Academic Tutor — Step 7: LangChain Chains")
         print("=" * 60)
-        print("1. Run Topic Pipeline (Explanation + Notes)")
+        print("1. Run Topic Pipeline (Explanation + Notes + Quiz)")
         print("2. View conversation history")
         print("3. Exit")
         print("=" * 60)
@@ -26,20 +26,23 @@ def main():
 
         if choice == "1":
             topic = input("Enter a topic to generate a full pipeline for: ").strip()
-            
+
             if topic:
                 print("\n[System] Processing sequential chain (this takes a moment)...")
                 results = session.run_study_pipeline(topic)
-                
+
                 print("\n=== STEP 1: EXPLANATION ===")
                 print(results["explanation"])
-                
+
                 print("\n=== STEP 2: SUMMARY NOTES ===")
                 print(results["notes"])
-                
+
+                print("\n=== STEP 3: QUIZ ===")
+                print(results["quiz"])
+
         elif choice == "2":
             session.show_history()
-            
+
         elif choice == "3":
             print("Goodbye! Keep studying.")
             break
