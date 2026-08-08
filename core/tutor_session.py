@@ -13,10 +13,11 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 
 class TutorSession:
-    def __init__(self, llm, user_id: str = "default", user_name: str = None):
+    def __init__(self, llm, user_id: str = "default", user_name: str = None, kb=None):
         self.llm = llm
         self.user_id = user_id
         self.user_name = user_name or user_id
+        self.kb = kb  
 
         identity_line = f" You are currently tutoring {self.user_name}." if user_name else ""
         self.history = [
@@ -464,3 +465,38 @@ Thought: {agent_scratchpad}"""
         self.save_history()
 
         return output
+
+    # ---- RAG: retrieval-grounded answers ----
+    def ask_with_rag(self, user_input: str, k: int = 4) -> str:
+        """Answers using only the student's ingested study material, with
+        source citations, and a clear 'not found' fallback instead of guessing."""
+        import os
+
+        if self.kb is None:
+            return ("[System] No knowledge base attached to this session. "
+                     "Pass a KnowledgeBase instance to TutorSession(..., kb=...) first.")
+
+        matches = self.kb.retrieve(user_input, k=k)
+        if not matches:
+            return ("I couldn't find anything relevant in your uploaded materials "
+                     "for that question. Try ingesting more documents first.")
+
+        context_block = "\n\n".join(
+            f"[Source: {os.path.basename(source)}]\n{text}"
+            for text, source in matches
+        )
+
+        prompt = (
+            "Answer the student's question using ONLY the context below, which "
+            "comes from their own study material. If the answer isn't in the "
+            "context, say so plainly instead of guessing. Cite the source "
+            "filename(s) you used.\n\n"
+            f"Context:\n{context_block}\n\n"
+            f"Student Question: {user_input}"
+        )
+
+        self.history.append(HumanMessage(content=user_input))
+        response = self.llm.invoke(self.history[:-1] + [HumanMessage(content=prompt)])
+        answer_text = self._extract_text(response.content)
+        self.history.append(AIMessage(content=answer_text))
+        return answer_text
